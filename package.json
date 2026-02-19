@@ -1,0 +1,29 @@
+{
+  "name": "speedrss",
+  "version": "0.1.0",
+  "description": "SpeedRSS: x402 RSS transmitter. Pay $0.25 via x402 to submit an X URL; get author/title/content and public feed. Extend the reach of CT on X to outside X.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@x402/core": "~2.3.0",
+    "@x402/express": "^2.3.0",
+    "@x402/evm": "^2.3.1",
+    "better-sqlite3": "^11.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

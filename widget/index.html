@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SpeedRSS</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 12px 14px;
+      background: #fafafa;
+      color: #1a1a1a;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .widget-header {
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .search-wrap input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 14px;
+      color: #1a1a1a;
+    }
+    .search-wrap input::placeholder { color: #999; }
+    .search-wrap input:focus {
+      outline: none;
+      border-color: #b0b0b0;
+    }
+    .feed-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .feed-item {
+      padding: 14px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-item .author { font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+    .feed-item .content { color: #444; white-space: pre-wrap; word-break: break-word; margin-bottom: 8px; }
+    .feed-item .meta { font-size: 12px; color: #888; }
+    .feed-item .meta a { color: #555; text-decoration: none; }
+    .feed-item .meta a:hover { text-decoration: underline; }
+    .loading, .error { padding: 24px 16px; text-align: center; color: #888; font-size: 14px; }
+    .error { color: #b33; }
+    .empty { padding: 24px 16px; color: #888; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="widget-header">
+    <div class="search-wrap">
+      <input type="search" id="search" placeholder="Search posts…" autocomplete="off" />
+    </div>
+  </div>
+  <div id="feed-container">
+    <div class="loading" id="loading">Loading…</div>
+    <ul class="feed-list" id="feed-list" hidden></ul>
+    <div class="empty" id="empty" hidden>No posts match your search.</div>
+    <div class="error" id="error" hidden></div>
+  </div>
+
+  <script>
+    (function () {
+      const searchInput = document.getElementById("search");
+      const feedList = document.getElementById("feed-list");
+      const loadingEl = document.getElementById("loading");
+      const emptyEl = document.getElementById("empty");
+      const errorEl = document.getElementById("error");
+
+      const params = new URLSearchParams(location.search);
+      const apiBase = (params.get("api") || "").replace(/\/$/, "") || "";
+
+      function escapeHtml(s) {
+        const div = document.createElement("div");
+        div.textContent = s;
+        return div.innerHTML;
+      }
+
+      var mediaUrlRe = /(https?:\/\/)?(pic\.twitter\.com\/[a-zA-Z0-9]+|t\.co\/[a-zA-Z0-9]+)/gi;
+      var attributionRe = /\s*(?:&mdash;|—|-)\s*[^\n]+\(@[^)]+\)[^\n]*$/i;
+      function cleanText(text) {
+        if (!text) return "";
+        return text
+          .replace(mediaUrlRe, "")
+          .replace(attributionRe, "")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      }
+      function formatContent(text) {
+        return escapeHtml(cleanText(text));
+      }
+
+      function renderPost(post) {
+        const li = document.createElement("li");
+        li.className = "feed-item";
+        const date = post.createdAt ? new Date(post.createdAt).toLocaleDateString(undefined, { dateStyle: "short" }) : "";
+        const body = cleanText(post.content);
+        li.innerHTML =
+          "<span class=\"author\">" + escapeHtml(post.author) + "</span>" +
+          "<div class=\"content\">" + (body ? formatContent(post.content) : "") + "</div>" +
+          "<div class=\"meta\">" + (date ? date + " · " : "") + "<a href=\"" + escapeHtml(post.sourceUrl) + "\" target=\"_blank\" rel=\"noopener\">View on X</a></div>";
+        return li;
+      }
+
+      function filterAndSort(posts, query) {
+        const q = (query || "").trim().toLowerCase();
+        let list = posts.slice();
+        if (q) {
+          list = list.filter(function (p) {
+            return (
+              (p.author && p.author.toLowerCase().includes(q)) ||
+              (p.title && p.title.toLowerCase().includes(q)) ||
+              (p.content && p.content.toLowerCase().includes(q))
+            );
+          });
+        }
+        list.sort(function (a, b) {
+          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tb - ta;
+        });
+        return list;
+      }
+
+      function show(list) {
+        loadingEl.hidden = true;
+        errorEl.hidden = true;
+        feedList.hidden = true;
+        emptyEl.hidden = true;
+        if (list.length === 0) {
+          emptyEl.hidden = false;
+          return;
+        }
+        feedList.innerHTML = "";
+        list.forEach(function (post) { feedList.appendChild(renderPost(post)); });
+        feedList.hidden = false;
+      }
+
+      function onError(msg) {
+        loadingEl.hidden = true;
+        feedList.hidden = true;
+        emptyEl.hidden = true;
+        errorEl.textContent = msg;
+        errorEl.hidden = false;
+      }
+
+      let allPosts = [];
+      function runSearch() {
+        show(filterAndSort(allPosts, searchInput.value));
+      }
+
+      searchInput.addEventListener("input", runSearch);
+      searchInput.addEventListener("change", runSearch);
+
+      fetch(apiBase + "/feed")
+        .then(function (r) {
+          if (!r.ok) throw new Error("Feed failed: " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          allPosts = data.posts || [];
+          runSearch();
+        })
+        .catch(function (err) {
+          onError(err.message || "Could not load feed.");
+        });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "speedrss-telegram",
+  "version": "0.1.0",
+  "description": "Telegram bot: notifies channels/groups when a new post is pushed to SpeedRSS.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  }
+}
